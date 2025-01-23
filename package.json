@@ -1,7 +1,7 @@
 {
-  "name": "captionmltocaptioncomment",
-  "displayName": "CaptionML to CaptionComment",
-  "description": "Allows conversion of CaptionML tags from NAV into CaptionComment tags in AL",
+  "name": "mlelementtoprefixcomment",
+  "displayName": "MLElement to PrefixComment",
+  "description": "Allows conversion of MLElement tags from NAV into PrefixComment tags in AL",
   "author": {
     "name": "Esteban Lopez",
     "email": "estebanll@outlook.es"
@@ -19,10 +19,24 @@
   "contributes": {
     "commands": [
       {
-        "command": "captionmltocaptioncomment.UpdateText",
-        "title": "Update Text"
+        "command": "mlelementtoprefixcomment.UpdateText",
+        "title": "MLtoCC: From ML to Comment"
+      },
+      {
+        "command": "mlelementtoprefixcomment.SearchAndUpdateAllReferencesInActiveEditor",
+        "title": "MLtoCC: From ML to Comment in Active Editor"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CaptionML to CaptionComment",
+      "properties": {
+        "mlelementtoprefixcomment.selectFullLines": {
+          "type": "boolean",
+          "default": true,
+          "description": "Select full lines to convert from CaptionML to CaptionComment"
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",

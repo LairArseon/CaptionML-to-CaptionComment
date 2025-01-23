@@ -12,13 +12,12 @@ function activate(context) {
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "captionmltocaptioncomment" is now active!');
-	console.log(context);
+	console.log('Extension "mlelementtoprefixcomment" is active');
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with  registerCommand
 
-	const UpdateText = vscode.commands.registerCommand('captionmltocaptioncomment.UpdateText', function () {
+	const UpdateText = vscode.commands.registerCommand('mlelementtoprefixcomment.UpdateText', function () {
 		// The code you place here will be executed every time your command is executed
 
 		const editor = vscode.window.activeTextEditor;
@@ -28,23 +27,43 @@ function activate(context) {
 			return;
 		}
 
+		// Get the configuration settings
+		const selectFullLines = vscode.workspace.getConfiguration().get('mlelementtoprefixcomment.selectFullLines');
+
+		if (selectFullLines) {
+			// Adjust the range to include the entire start and end lines
+			const startLine = selection.start.line;
+			const endLine = selection.end.line;
+			const startCharacter = 0;
+			const endCharacter = editor.document.lineAt(endLine).text.length;
+			
+			var selectionRange = new vscode.Range(startLine, startCharacter, endLine, endCharacter);
+		} else {
+			// Select only the text that was highlighted
+			var selectionRange = new vscode.Range(selection.start.line, selection.start.character, selection.end.line, selection.end.character);
+		}
 
 		if (selection && !selection.isEmpty) {
-			const selectionRange = new vscode.Range(selection.start.line, selection.start.character, selection.end.line, selection.end.character);
+
 			var highlighted = editor.document.getText(selectionRange);
 
-			if(!CaptionML.Validate(highlighted))
+			if(!MLElement.Validate(highlighted))
 				{
 					vscode.window.showErrorMessage('Selected text: "' + highlighted + '" is not valid');
 				} else {
 					vscode.window.showInformationMessage('Selected text is valid');
 					editor.edit(editBuilder => {
-						editBuilder.replace(selection, CaptionML.ConvertToComment(highlighted));
+						editBuilder.replace(selection, MLElement.ConvertToComment(highlighted));
 					})
 				}
 		}
 	});
-	context.subscriptions.push(UpdateText);
+
+	const UpdateFullEditorText = vscode.commands.registerCommand('mlelementtoprefixcomment.SearchAndUpdateAllReferencesInActiveEditor', function () {
+		const editor = vscode.window.activeTextEditor;
+	});
+
+	context.subscriptions.push(UpdateText, UpdateFullEditorText);
 }
 
 // This method is called when your extension is deactivated
@@ -55,13 +74,24 @@ module.exports = {
 	deactivate
 }
 
-class CaptionML{
+class MLElement{
 
-	// Ensures the input text is a valid CaptionML
+	// Ensures the input text is a valid MLElement
     static Validate(InputText) {
-		const regex = /CaptionML\s*=\s*([A-Z]{3})\s*=\s*'[^']*'(?:,\s*([A-Z]{3})\s*=\s*'[^']*')*;/g;
+
+		const allowedPrefixes = this.GetAllowedPrefixes().join('|');
+        const regex = new RegExp(`^\\s*(${allowedPrefixes})\\s*=\\s*[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*;\\s*$`, 'g');
         return InputText.match(regex);
     }
+
+	static GetAllowedPrefixes() {
+		return [
+			'CaptionML', 
+			'ToolTipML', 
+			'PromotedActionCategoriesML', 
+			'RequestFilterHeadingML',
+			'OptionCaptionML'];
+	}
 
 	// Gets the value of a specific MLCode
     static GetML(InputText, MLCode) {
@@ -81,7 +111,7 @@ class CaptionML{
         return tags;
     }
 
-	// Converts the CaptionML to a Caption and Comment
+	// Converts the MLElement to a Prefix and Comment
 	static ConvertToComment(InputText) {
         const tags = this.ListTags(InputText);
         let caption = this.GetML(InputText, 'ENU');
@@ -89,11 +119,18 @@ class CaptionML{
             caption = this.GetML(InputText, tags[0]);
         }
 
+		// Create the comment by listing all the MLCodes except ENU which is the caption
         const comments = tags
             .filter(tag => tag !== 'ENU')
             .map(tag => `${tag}="${this.GetML(InputText, tag)}"`)
             .join(', ');
 
-        return `Caption = '${caption}', Comment = '${comments}';`;
+		// Get the prefix of the MLElement
+		const allowedPrefixes = this.GetAllowedPrefixes().join('|');
+		const regex = new RegExp(`(${allowedPrefixes})`, 'g');
+        const prefixMatch = InputText.match(regex);
+        const prefix = prefixMatch[0].replace('ML', '');
+
+        return `${prefix} = '${caption}', Comment = '${comments}';`;
     }
 }
