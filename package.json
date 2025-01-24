@@ -7,7 +7,7 @@
     "email": "estebanll@outlook.es"
   },
   "icon": "",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -28,12 +28,32 @@
       }
     ],
     "configuration": {
-      "title": "CaptionML to CaptionComment",
+      "title": "MLtoCC",
       "properties": {
         "mlelementtoprefixcomment.selectFullLines": {
           "type": "boolean",
           "default": true,
-          "description": "Select full lines to convert from CaptionML to CaptionComment"
+          "description": "Select full lines to convert from MLElement to CaptionComment"
+        },
+        "mlelementtoprefixcomment.MLElementPrefixes": {
+          "type":"array",
+          "default": [
+            "CaptionML", 
+            "ToolTipML", 
+            "PromotedActionCategoriesML", 
+            "RequestFilterHeadingML",
+            "OptionCaptionML"],
+          "description": "Prefixes to convert from MLElement to CaptionComment"
+        },
+        "mlelementtoprefixcomment.convertTextConst": {
+          "type": "boolean",
+          "default": true,
+          "description": "Convert text constants into labels and transfer the ML part into the comment"
+        },
+        "mlelementtoprefixcomment.convertReportLabel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Convert report labels into the new structure where the label name is the identifier and adds a comment with the ML part"
         }
       }
     }

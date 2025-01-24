@@ -66,13 +66,34 @@ function activate(context) {
             return;
         }
 
+		// Get the configuration settings
+		const ConvertTextConstants = vscode.workspace.getConfiguration().get('mlelementtoprefixcomment.convertTextConst');
+		const ConvertReportLabels = vscode.workspace.getConfiguration().get('mlelementtoprefixcomment.convertReportLabel');
+
         const documentText = editor.document.getText();
-        const matches = MLElement.FindAllMatches(documentText);
+        const mlMatches = MLElement.FindAllMatches(documentText);
+
+		if (ConvertTextConstants) {
+			var textConstMatches = TextConst.FindAllMatches(documentText);
+		}
+		if (ConvertReportLabels) {
+			var reportLabelMatches = ReportLabel.FindAllMatches(documentText);
+		}
 
         editor.edit(editBuilder => {
-            matches.forEach(match => {
+            mlMatches.forEach(match => {
                 editBuilder.replace(match.range, MLElement.ConvertToComment(match.match));
             });
+			if (ConvertTextConstants) {
+				textConstMatches.forEach(match => {
+					editBuilder.replace(match.range, TextConst.ConvertToComment(match.match));
+				});
+			}
+			if (ConvertReportLabels) {
+				reportLabelMatches.forEach(match => {
+					editBuilder.replace(match.range, ReportLabel.ConvertToComment(match.match));
+				});
+			}
         });
 	});
 
@@ -97,13 +118,10 @@ class MLElement{
         return InputText.match(regex);
     }
 
+	// Gets the allowed prefixes for MLElements
 	static GetAllowedPrefixes() {
-		return [
-			'CaptionML', 
-			'ToolTipML', 
-			'PromotedActionCategoriesML', 
-			'RequestFilterHeadingML',
-			'OptionCaptionML'];
+		const MLElementPrefixes = vscode.workspace.getConfiguration().get('mlelementtoprefixcomment.MLElementPrefixes');
+		return MLElementPrefixes;
 	}
 
 	// Gets the value of a specific MLCode
@@ -147,6 +165,7 @@ class MLElement{
         return `${prefix} = '${caption}', Comment = '${comments}';`;
     }
 
+	// Finds all the MLElements in the input text
 	static FindAllMatches(InputText) {
         const allowedPrefixes = this.GetAllowedPrefixes().join('|');
         const regex = new RegExp(`(${allowedPrefixes})\\s*=\\s*[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*;`, 'g');
@@ -163,6 +182,131 @@ class MLElement{
             matches.push({
                 match: match[0],
                 range: new vscode.Range(start, startChar, end, endChar)
+            });
+        }
+        return matches;
+    }
+}
+
+class TextConst{
+
+	// Ensures the input text is a valid TextConst
+    static Validate(InputText) {
+        const regex = new RegExp(`^\\s*\\w+\\s*:\\s*TextConst\\s+[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*;\\s*$`, 'g');
+        return regex.test(InputText);
+    }
+
+	// Gets the value of a specific MLCode
+    static GetML(InputText, MLCode) {
+        const regex = new RegExp(`${MLCode}\\s*=\\s*'([^']*)'`, 'i');
+        const match = InputText.match(regex);
+        return match ? match[1] : null;
+    }
+
+	// Lists all the MLCodes in the input text
+    static ListTags(InputText) {
+        const regex = /([A-Z]{3})\s*=\s*'[^']*'/g;
+        let match;
+        const tags = [];
+        while ((match = regex.exec(InputText)) !== null) {
+            tags.push(match[1]);
+        }
+        return tags;
+    }
+
+	// Converts the TextConst to a Prefix and Comment
+    static ConvertToComment(InputText) {
+        const tags = this.ListTags(InputText);
+        let caption = this.GetML(InputText, 'ENU');
+        if (!caption && tags.length > 0) {
+            caption = this.GetML(InputText, tags[0]);
+        }
+
+        const comments = tags
+            .filter(tag => tag !== 'ENU')
+            .map(tag => `${tag}="${this.GetML(InputText, tag)}"`)
+            .join(', ');
+
+        const variableName = InputText.split(':')[0].trim();
+        return `${variableName}: Label '${caption}', Comment = '${comments}';`;
+    }
+
+	// Finds all the TextConsts in the input text
+    static FindAllMatches(InputText) {
+        const regex = new RegExp(`\\w+\\s*:\\s*TextConst\\s+[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*;`, 'g');
+        let match;
+        const matches = [];
+        while ((match = regex.exec(InputText)) !== null) {
+            const startPos = match.index;
+            const endPos = regex.lastIndex;
+            const startLine = InputText.slice(0, startPos).split('\n').length - 1;
+            const endLine = InputText.slice(0, endPos).split('\n').length - 1;
+            const startChar = startPos - InputText.lastIndexOf('\n', startPos - 1) - 1;
+            const endChar = endPos - InputText.lastIndexOf('\n', endPos - 1) - 1;
+
+            matches.push({
+                match: match[0],
+                range: new vscode.Range(startLine, startChar, endLine, endChar)
+            });
+        }
+        return matches;
+    }
+}
+
+class ReportLabel {
+
+    static Validate(InputText) {
+        const regex = new RegExp(`^\\s*label\\s*\\(\\s*\\w+\\s*;\\s*[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*\\)\\s*$`, 'g');
+        return regex.test(InputText);
+    }
+
+    static GetML(InputText, MLCode) {
+        const regex = new RegExp(`${MLCode}\\s*=\\s*'([^']*)'`, 'i');
+        const match = InputText.match(regex);
+        return match ? match[1] : null;
+    }
+
+    static ListTags(InputText) {
+        const regex = /([A-Z]{3})\s*=\s*'[^']*'/g;
+        let match;
+        const tags = [];
+        while ((match = regex.exec(InputText)) !== null) {
+            tags.push(match[1]);
+        }
+        return tags;
+    }
+
+    static ConvertToComment(InputText) {
+        const tags = this.ListTags(InputText);
+        let caption = this.GetML(InputText, 'ENU');
+        if (!caption && tags.length > 0) {
+            caption = this.GetML(InputText, tags[0]);
+        }
+
+        const comments = tags
+            .filter(tag => tag !== 'ENU')
+            .map(tag => `${tag}="${this.GetML(InputText, tag)}"`)
+            .join(', ');
+
+        const labelName = InputText.match(/label\s*\(\s*(\w+)\s*;/)[1];
+        return `${labelName} = '${caption}', Comment = '${comments}';`;
+    }
+
+    static FindAllMatches(InputText) {
+        const regex = new RegExp(`label\\s*\\(\\s*\\w+\\s*;\\s*[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*\\)`, 'g');
+        let match;
+        const matches = [];
+        while ((match = regex.exec(InputText)) !== null) {
+            const startPos = match.index;
+            const endPos = regex.lastIndex;
+            const startLine = InputText.slice(0, startPos).split('\n').length - 1;
+            const endLine = InputText.slice(0, endPos).split('\n').length - 1;
+            const startChar = startPos - InputText.lastIndexOf('\n', startPos - 1) - 1;
+            const endChar = endPos - InputText.lastIndexOf('\n', endPos - 1) - 1;
+
+            matches.push({
+                match: match[0],
+                range: new vscode.Range(startLine, startChar, endLine, endChar)
             });
         }
         return matches;
