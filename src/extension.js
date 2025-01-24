@@ -61,6 +61,19 @@ function activate(context) {
 
 	const UpdateFullEditorText = vscode.commands.registerCommand('mlelementtoprefixcomment.SearchAndUpdateAllReferencesInActiveEditor', function () {
 		const editor = vscode.window.activeTextEditor;
+
+		if (!editor) {
+            return;
+        }
+
+        const documentText = editor.document.getText();
+        const matches = MLElement.FindAllMatches(documentText);
+
+        editor.edit(editBuilder => {
+            matches.forEach(match => {
+                editBuilder.replace(match.range, MLElement.ConvertToComment(match.match));
+            });
+        });
 	});
 
 	context.subscriptions.push(UpdateText, UpdateFullEditorText);
@@ -132,5 +145,26 @@ class MLElement{
         const prefix = prefixMatch[0].replace('ML', '');
 
         return `${prefix} = '${caption}', Comment = '${comments}';`;
+    }
+
+	static FindAllMatches(InputText) {
+        const allowedPrefixes = this.GetAllowedPrefixes().join('|');
+        const regex = new RegExp(`(${allowedPrefixes})\\s*=\\s*[A-Z]{3}\\s*=\\s*'[^']*'(?:,\\s*[A-Z]{3}\\s*=\\s*'[^']*')*;`, 'g');
+        let match;
+        const matches = [];
+        while ((match = regex.exec(InputText)) !== null) {
+            const startPos = match.index;
+            const endPos = regex.lastIndex;
+            const start = InputText.slice(0, startPos).split('\n').length - 1;
+            const end = InputText.slice(0, endPos).split('\n').length - 1;
+			const startChar = startPos - InputText.lastIndexOf('\n', startPos - 1) - 1;
+            const endChar = endPos - InputText.lastIndexOf('\n', endPos - 1) - 1;
+
+            matches.push({
+                match: match[0],
+                range: new vscode.Range(start, startChar, end, endChar)
+            });
+        }
+        return matches;
     }
 }
