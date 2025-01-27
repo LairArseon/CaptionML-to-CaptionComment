@@ -7,9 +7,13 @@
     "email": "estebanll@outlook.es"
   },
   "icon": "",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.96.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LairArseon/CaptionML-to-CaptionComment"
   },
   "categories": [
     "Other"
